@@ -188,17 +188,17 @@ td .lin2 { display: block; color: var(--muted); font-size: 12px; white-space: no
 .video { width: 100%; max-width: 760px; }
 .video .marco { position: relative; aspect-ratio: 16 / 9; max-width: 100%; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: linear-gradient(165deg, #eaf2fb 0%, #f6fbfa 55%, #e7f5f2 100%); box-shadow: 0 14px 38px rgba(30, 90, 168, .10); }
 .video svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.vcaja { transition: transform 2.2s cubic-bezier(.22, .9, .3, 1), opacity .8s; will-change: transform; }
-.video.flotando .vcaja { transform: translate(var(--x0), var(--y0)) rotate(var(--r0)); }
-.video.ordenado .vcaja { transform: translate(var(--x1), var(--y1)) rotate(0deg); transition-delay: var(--dl); }
-.vbusca { opacity: 0; transition: opacity .6s; }
-.video.buscando .vbusca, .video.ordenado .vbusca { opacity: 1; }
+.vcaja { transform: translate(var(--x0), var(--y0)) rotate(var(--r0)); transition: opacity .9s; }
+.video.e1 .vcaja { animation: vflot 5.5s ease-in-out var(--dl) infinite; }
+.video:not(.e1) .vcaja { opacity: .05; }
+@keyframes vflot { 0%, 100% { translate: 0 0; } 50% { translate: 0 -9px; } }
+.vesc { opacity: 0; transition: opacity .7s; pointer-events: none; }
+.video.e2 .vs2, .video.e3 .vs3, .video.e4 .vs4, .video.e5 .vs5, .video.e6 .vs6 { opacity: 1; }
+.vsug { opacity: 0; transition: opacity .5s; }
+.video.sug .vsug { opacity: 1; }
 .vq { font: 600 15px var(--mono); fill: var(--ink); }
-.vrepisa, .vchips, .vcierre { opacity: 0; transition: opacity .9s; }
-.video.ordenado .vrepisa { opacity: 1; transition-delay: 1.4s; }
-.video.chips .vchips { opacity: 1; }
-.video.cierre .vcierre { opacity: 1; }
-.video.cierre .vcaja, .video.cierre .vbusca, .video.cierre .vchips { opacity: .12; }
+.vkpi, .vfila { opacity: 0; transform: translateY(12px); transition: opacity .55s, transform .55s; transition-delay: var(--dl, 0s); }
+.video.e3 .vs3 .vkpi, .video.e4 .vs4 .vfila { opacity: 1; transform: none; }
 .vsub { position: absolute; left: 0; right: 0; bottom: 10px; display: flex; justify-content: center; padding: 0 16px; pointer-events: none; }
 .vsub span { background: rgba(20, 35, 44, .82); color: #fff; font: 500 clamp(12px, 2.4vw, 15.5px)/1.4 var(--font); padding: 6px 14px; border-radius: 8px; max-width: 92%; text-align: center; }
 .vreplay { position: absolute; top: 10px; right: 10px; background: rgba(255, 255, 255, .9); border: 1px solid var(--line-2); border-radius: 999px; font: 600 12.5px var(--font); color: var(--brand); padding: 5px 12px; cursor: pointer; }
@@ -282,9 +282,6 @@ footer.pie .wrap { padding-block: 18px 30px; display: flex; flex-wrap: wrap; gap
       <a href="#t-metodologia" data-sec="t">Transparencia</a>
       <a href="#t-contacto" data-sec="t">Contáctenos</a>
     </nav>
-    <div class="perfil"><label for="perfil-sel">Perfil</label>
-      <select id="perfil-sel"><option value="ciudadano">Ciudadano</option><option value="medico">Médico</option><option value="gestor">Gestor de salud</option><option value="experto">Experto</option></select>
-    </div>
   </div>
 </header>
 
@@ -326,7 +323,6 @@ const NIVEL = {
   pendiente_consulta: ["Sin búsqueda de estudios", ""],
 };
 const FIN = {upc: ["Financiado con la UPC", "ok"], no_upc: ["No financiado con la UPC", "warn"], excluido: ["Excluido de la financiación", "bad"], otro: ["Ver financiación", ""], "": ["Financiación sin dato", ""]};
-const DGC = id => `https://www.datos.gov.co/api/views/${id}/rows.csv?accessType=DOWNLOAD`;
 const FUENTE_DOSIS = d => /INVIMA/.test(d) ? "INVIMA" : /FDA/.test(d) ? "FDA" : /OMS/.test(d) ? "DDD OMS" : "";
 const ESTADO = ["Vigente", "Temporalmente no comercializado", "En renovación"];
 const PERFILES = {ciudadano: "Ciudadano", medico: "Médico", gestor: "Gestor de salud", experto: "Experto"};
@@ -337,9 +333,7 @@ const esCurso = m => CURSO.test(m.id);
 // ---------- perfil ----------
 let perfil = "ciudadano";
 try { perfil = localStorage.getItem("dosera.perfil") || perfil; } catch (e) {}
-function setPerfil(p) { perfil = p; try { localStorage.setItem("dosera.perfil", p); } catch (e) {} $("#perfil-sel").value = p; enrutar(); }
-$("#perfil-sel").value = perfil;
-$("#perfil-sel").addEventListener("change", e => setPerfil(e.target.value));
+function setPerfil(p) { perfil = p; try { localStorage.setItem("dosera.perfil", p); } catch (e) {} const s = $("#perfil-sel"); if (s) s.value = p; enrutar(); }
 
 // ---------- índice de búsqueda ----------
 const idxM = M.map((m, i) => ({i, k: norm(m.n + " " + m.en + " " + m.id)}));
@@ -504,64 +498,139 @@ function vistaInicio() {
   $("#q").focus({preventScroll: true});
 }
 
-// «La farmacia de cristal»: animación de 16 s que explica el sitio, con subtítulos.
+// «Doseraa en 30 segundos»: recorrido animado por lo que ofrece el sitio, con datos reales de la base y subtítulos.
 let videoTimers = [];
 function montarVideo(cont) {
   if (!cont) return;
-  const W = 760, H = 428, N = 24;
+  const W = 760, H = 428, FF = "var(--font)";
   const rnd = (seed => () => (seed = (seed * 16807) % 2147483647) / 2147483647)(97);
   const COLS = ["#1e5aa8", "#1a9e8c", "#5f93cf", "#7cc3b8", "#b7cfec", "#9fd8cf"];
   let cajas = "";
-  for (let i = 0; i < N; i++) {
-    const w = 46 + rnd() * 26, h = 30 + rnd() * 14;
-    const x0 = 20 + rnd() * (W - 90), y0 = 14 + rnd() * (H - 130), r0 = (rnd() * 40 - 20).toFixed(0);
-    const fila = Math.floor(i / 8), colp = i % 8;
-    const x1 = 56 + colp * 83, y1 = 128 + fila * 86;
+  for (let i = 0; i < 22; i++) {
+    const x0 = 16 + rnd() * (W - 92), y0 = 12 + rnd() * (H - 125), r0 = (rnd() * 40 - 20).toFixed(0);
     const c = COLS[i % COLS.length];
-    cajas += `<g class="vcaja" style="--x0:${x0.toFixed(0)}px;--y0:${y0.toFixed(0)}px;--r0:${r0}deg;--x1:${x1}px;--y1:${y1}px;--dl:${(rnd() * .9).toFixed(2)}s">
-      <rect width="62" height="40" rx="7" fill="#fff" stroke="${c}" stroke-width="2.5"/>
-      <rect x="8" y="9" width="${26 + (i % 3) * 8}" height="6" rx="3" fill="${c}"/>
-      <rect x="8" y="21" width="20" height="5" rx="2.5" fill="#c9d6de"/>
-      <rect x="8" y="29" width="30" height="5" rx="2.5" fill="#dde6ec"/></g>`;
+    cajas += `<g class="vcaja" style="--x0:${x0.toFixed(0)}px;--y0:${y0.toFixed(0)}px;--r0:${r0}deg;--dl:${(rnd() * 4).toFixed(2)}s"><rect width="62" height="40" rx="7" fill="#fff" stroke="${c}" stroke-width="2.5"/><rect x="8" y="9" width="${26 + (i % 3) * 8}" height="6" rx="3" fill="${c}"/><rect x="8" y="21" width="20" height="5" rx="2.5" fill="#c9d6de"/><rect x="8" y="29" width="30" height="5" rx="2.5" fill="#dde6ec"/></g>`;
   }
-  const chip = (x, y, c, t) => `<g transform="translate(${x},${y})"><rect width="${t.length * 8.2 + 30}" height="27" rx="13.5" fill="${c}"/><circle cx="14" cy="13.5" r="5.5" fill="#fff"/><text x="25" y="18" font-size="13" font-weight="600" fill="#fff" font-family="var(--font)">${t}</text></g>`;
+  // Datos reales, tomados de la misma base del sitio
+  const met = M.find(m => m.id === "A10BA02") || M.find(m => m.cd != null && m.fin === "upc") || M[0];
+  const gla = M.find(m => m.id === "A10AE04");
+  const eDia = Object.entries(I).find(([, v]) => /diabetes mellitus tipo 2/i.test(v[0])) || Object.entries(I).find(([, v]) => /diabetes/i.test(v[0]));
+  let alt = ["A10BB01", "A10BA02", "A10BK01", "A10BK03"].map(id => M.find(m => m.id === id)).filter(m => m && m.cd != null);
+  if (alt.length < 2) alt = [met];
+  const filas = alt.slice().sort((a, b) => a.cd - b.cd);
+  const maxCd = Math.max(...filas.map(m => m.cd));
+  const SEMC = {v: "#1f7a3e", a: "#e3b341", r: "#c94f4f"};
+  const semFila = ["v", "v", "a", "r"];
+
+  const vpill = (x, y, t, bg, fg) => `<g transform="translate(${x},${y})"><rect width="${t.length * 7 + 20}" height="24" rx="12" fill="${bg}"/><text x="${(t.length * 7 + 20) / 2}" y="16.5" font-size="12" font-weight="600" fill="${fg}" text-anchor="middle" font-family="${FF}">${t}</text></g>`;
+  const crit = (x, t, on) => { const w = t.length * 7.4 + 24; return [`<g transform="translate(${x},58)"><rect width="${w}" height="26" rx="13" fill="${on ? "#1e5aa8" : "#fff"}" stroke="#1e5aa8" stroke-width="1.5"/><text x="${w / 2}" y="17.5" font-size="12.5" font-weight="600" fill="${on ? "#fff" : "#1e5aa8"}" text-anchor="middle" font-family="${FF}">${t}</text></g>`, x + w + 10]; };
+
+  // Escena 2: búsqueda con sugerencias
+  const sugRow = (y, t, d, on) => `<g transform="translate(${W / 2 - 190},${y})"><rect width="380" height="36" rx="9" fill="${on ? "#eaf2fb" : "#fff"}"/><text x="14" y="23" font-size="13.5" font-weight="600" fill="#14232c" font-family="${FF}">${t}</text><text x="366" y="23" font-size="11.5" fill="#5b6b74" text-anchor="end" font-family="${FF}">${d}</text></g>`;
+  const vs2 = `<g class="vesc vs2">
+      <rect x="${W / 2 - 190}" y="52" width="380" height="52" rx="26" fill="#fff" stroke="#1e5aa8" stroke-width="2.5"/>
+      <circle cx="${W / 2 - 160}" cy="78" r="9" fill="none" stroke="#5b6b74" stroke-width="2.5"/><line x1="${W / 2 - 153}" y1="85" x2="${W / 2 - 146}" y2="92" stroke="#5b6b74" stroke-width="2.5" stroke-linecap="round"/>
+      <text class="vq" id="vq" x="${W / 2 - 134}" y="84"></text>
+      <g class="vsug"><rect x="${W / 2 - 190}" y="118" width="380" height="128" rx="12" fill="#fff" stroke="#dbe3e8"/>
+        ${eDia ? sugRow(126, esc(eDia[1][0]), eDia[1][2].length + " moléculas", true) : ""}
+        ${sugRow(166, esc(met.n) + " · " + met.id, met.rg + " registros", false)}
+        ${gla ? sugRow(206, esc(gla.n) + " · " + gla.id, gla.rg + " registros", false) : ""}
+      </g></g>`;
+
+  // Escena 3: la ficha del medicamento
+  const anual = met.cd != null ? pesos(Math.round(met.cd * 365)) : "—";
+  const kpis = [[anual, "Costo anual estimado", "SISMED 2024"], [met.reg ? "Sí" : "No", "Precio regulado", "Circular 22 de 2026"], [met.fin === "upc" ? "Sí" : "No", "Financiado con la UPC", "MinSalud"], [String(met.rg), "Registros sanitarios", "INVIMA · CUM"]];
+  const vs3 = `<g class="vesc vs3">
+      <text x="60" y="70" font-size="27" font-weight="700" fill="#14232c" font-family="${FF}">${esc(met.n)}</text>
+      <text x="60" y="93" font-size="13" fill="#5b6b74" font-family="${FF}">${esc(met.en)} · ${met.id} · ${esc(met.vias)}</text>
+      ${vpill(60, 106, met.fin === "upc" ? "Financiado con la UPC" : "Ver financiación", "#e4f3ea", "#1f7a3e")}${vpill(230, 106, met.reg ? "Precio regulado" : "Sin precio regulado", "#eef2f5", "#44565f")}
+      ${kpis.map(([v, l, f], k) => `<g transform="translate(${60 + k * 165},150)"><g class="vkpi" style="--dl:${(k * .18).toFixed(2)}s"><rect width="150" height="96" rx="12" fill="#fff" stroke="#dbe3e8"/><text x="14" y="38" font-size="${v.length > 7 ? 17 : 21}" font-weight="700" fill="#1e5aa8" font-family="${FF}">${v}</text><text x="14" y="62" font-size="11" fill="#14232c" font-weight="600" font-family="${FF}">${l}</text><text x="14" y="80" font-size="10.5" fill="#5b6b74" font-family="${FF}">${f}</text></g></g>`).join("")}
+      <g transform="translate(60,278)"><rect width="13" height="16" rx="2" fill="none" stroke="#1e5aa8" stroke-width="1.8"/><line x1="3.5" y1="5" x2="9.5" y2="5" stroke="#1e5aa8" stroke-width="1.5"/><line x1="3.5" y1="9" x2="9.5" y2="9" stroke="#1e5aa8" stroke-width="1.5"/><text x="22" y="13" font-size="12.5" fill="#44565f" font-family="${FF}">Soportes descargables: ClinicalTrials.gov · PubMed · Resolución INVIMA (PDF) · FDA · EMA</text></g></g>`;
+
+  // Escena 4: comparación con semáforos
+  let cx = 60, chipsCmp = "";
+  for (const [t, on] of [["Costo anual", true], ["Evidencia", false], ["Cobertura UPC", false]]) { const [h, nx] = crit(cx, t, on); chipsCmp += h; cx = nx; }
+  const vs4 = `<g class="vesc vs4">
+      <text x="60" y="44" font-size="19" font-weight="700" fill="#14232c" font-family="${FF}">${eDia ? "Alternativas con registro para " + esc(eDia[1][0].toLowerCase()) : "Comparación de alternativas"}</text>
+      ${chipsCmp}
+      <text x="94" y="112" font-size="10.5" fill="#5b6b74" font-family="${FF}" letter-spacing=".06em">MOLÉCULA</text><text x="478" y="112" font-size="10.5" fill="#5b6b74" text-anchor="end" font-family="${FF}" letter-spacing=".06em">COSTO ANUAL</text><text x="505" y="112" font-size="10.5" fill="#5b6b74" font-family="${FF}" letter-spacing=".06em">EVIDENCIA</text><text x="625" y="112" font-size="10.5" fill="#5b6b74" font-family="${FF}" letter-spacing=".06em">UPC</text>
+      ${filas.map((m, k) => { const y = 126 + k * 56, s = semFila[Math.min(k, 3)]; return `<g transform="translate(0,${y})"><g class="vfila" style="--dl:${(k * .22).toFixed(2)}s">
+        <rect x="56" y="0" width="648" height="46" rx="10" fill="#fff" stroke="#e3e9ed"/>
+        <rect x="68" y="11" width="24" height="24" rx="7" fill="${k === 0 ? "#1e5aa8" : "#eef2f5"}"/><text x="80" y="28" font-size="13" font-weight="700" fill="${k === 0 ? "#fff" : "#44565f"}" text-anchor="middle" font-family="${FF}">${k + 1}</text>
+        <text x="102" y="29" font-size="14.5" font-weight="600" fill="#14232c" font-family="${FF}">${esc(m.n)}</text>
+        <rect x="280" y="17" width="${Math.max(6, Math.round(m.cd / maxCd * 115))}" height="12" rx="4" fill="#1a9e8c" opacity=".55"/>
+        <circle cx="392" cy="23" r="5.5" fill="${SEMC[s]}"/><text x="478" y="28" font-size="13" fill="#14232c" text-anchor="end" font-variant-numeric="tabular-nums" font-family="${FF}">${pesos(Math.round(m.cd * 365))}</text>
+        <circle cx="512" cy="23" r="5.5" fill="${SEMC.v}"/><text x="524" y="28" font-size="12.5" fill="#44565f" font-family="${FF}">Fase 3</text>
+        <circle cx="632" cy="23" r="5.5" fill="${m.fin === "upc" ? SEMC.v : "#b9c4cb"}"/><text x="644" y="28" font-size="12.5" fill="#44565f" font-family="${FF}">${m.fin === "upc" ? "Sí" : "—"}</text></g></g>`; }).join("")}
+      </g>`;
+
+  // Escena 5: estadísticas reales (ventas SISMED y mapa de afiliados)
+  let vs5 = "";
+  {
+    const vg = Object.values(E.ventas_grupo || {});
+    const tot = vg.length ? [0, 1, 2].map(k => vg.reduce((s, a) => s + (a[k] || 0), 0)) : null;
+    let chart = "";
+    if (tot) {
+      const X = [100, 235, 370], ymax = Math.max(...tot), Y = v => 310 - v / ymax * 170;
+      const pts = tot.map((v, k) => [X[k], Y(v)]);
+      chart = `<text x="60" y="66" font-size="15" font-weight="700" fill="#14232c" font-family="${FF}">Ventas reportadas al SISMED</text>
+        <path d="M${pts.map(p => p.join(",")).join(" L")} L${X[2]},310 L${X[0]},310 Z" fill="#1e5aa8" opacity=".08"/>
+        <polyline points="${pts.map(p => p.join(",")).join(" ")}" fill="none" stroke="#1e5aa8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        ${pts.map((p, k) => `<circle cx="${p[0]}" cy="${p[1]}" r="5" fill="#1e5aa8" stroke="#fff" stroke-width="2"/><text x="${p[0]}" y="${p[1] - 14}" font-size="12" font-weight="600" fill="#14232c" text-anchor="middle" font-family="${FF}">${pesosCortos(tot[k])}</text><text x="${p[0]}" y="334" font-size="12" fill="#5b6b74" text-anchor="middle" font-family="${FF}">${2022 + k}</text>`).join("")}`;
+    }
+    let mapa = "";
+    if (E.mapa && E.afiliados) {
+      const dep = E.afiliados.departamentos || {};
+      const vtot = d => d ? (d.contributivo || 0) + (d.subsidiado || 0) + (d.excepcion || 0) : null;
+      const vals = Object.values(dep).map(vtot).filter(v => v).sort((a, b) => a - b);
+      const q = f => vals[Math.min(vals.length - 1, Math.floor(vals.length * f))];
+      const c1 = q(.25), c2 = q(.5), c3 = q(.75);
+      const colr = v => v == null ? "#eef2f5" : v <= c1 ? "#dbe7f6" : v <= c2 ? "#b7cfec" : v <= c3 ? "#8fb3e0" : "#5f93cf";
+      mapa = `<g transform="translate(468,40) scale(.46)">${E.mapa.deptos.map(d => d.d ? `<path d="${d.d}" fill="${colr(vtot(dep[d.c]))}" stroke="#fff" stroke-width="1.2"/>` : "").join("")}</g>
+        <text x="585" y="366" font-size="12" fill="#5b6b74" text-anchor="middle" font-family="${FF}">Afiliados por departamento (BDUA)</text>`;
+    }
+    vs5 = `<g class="vesc vs5">${chart}${mapa}</g>`;
+  }
+
+  // Escena 6: cierre
+  const vs6 = `<g class="vesc vs6"><g transform="translate(${W / 2 - 150},${H / 2 - 74}) scale(2.2)"><circle cx="24" cy="24" r="19" fill="none" stroke="#1e5aa8" stroke-width="4"/><path d="M8.6 30 A17 17 0 0 0 39.4 30 Z" fill="#1a9e8c"/><circle cx="24" cy="15" r="3" fill="#1e5aa8"/></g><text x="${W / 2 - 34}" y="${H / 2 - 16}" font-size="44" font-weight="700" letter-spacing="-1.5" fill="#1e5aa8" font-family="${FF}">dos<tspan fill="#1a9e8c">eraa</tspan></text><text x="${W / 2}" y="${H / 2 + 62}" font-size="19" fill="#14232c" text-anchor="middle" font-family="${FF}">Compara con evidencia. Decide mejor.</text><text x="${W / 2}" y="${H / 2 + 94}" font-size="16" font-weight="700" fill="#1e5aa8" text-anchor="middle" font-family="${FF}">doseraa.com</text></g>`;
+
   cont.innerHTML = `<div class="marco">
-    <svg viewBox="0 0 ${W} ${H}" aria-hidden="true">
-      ${cajas}
-      <g class="vrepisa">${[0, 1, 2].map(f => `<rect x="42" y="${172 + f * 86}" width="${W - 84}" height="5" rx="2.5" fill="#c3d0d8"/>`).join("")}</g>
-      <g class="vbusca"><rect x="${W / 2 - 190}" y="36" width="380" height="52" rx="26" fill="#fff" stroke="#1e5aa8" stroke-width="2.5"/><circle cx="${W / 2 - 160}" cy="62" r="9" fill="none" stroke="#5b6b74" stroke-width="2.5"/><line x1="${W / 2 - 153}" y1="69" x2="${W / 2 - 146}" y2="76" stroke="#5b6b74" stroke-width="2.5" stroke-linecap="round"/><text class="vq" id="vq" x="${W / 2 - 134}" y="68"></text></g>
-      <g class="vchips">${chip(170, 86, "#1f7a3e", "Precio y costo")}${chip(318, 86, "#1e5aa8", "Cobertura UPC")}${chip(468, 86, "#1a9e8c", "Evidencia")}</g>
-      <g class="vcierre"><g transform="translate(${W / 2 - 150},${H / 2 - 64}) scale(2.2)"><circle cx="24" cy="24" r="19" fill="none" stroke="#1e5aa8" stroke-width="4"/><path d="M8.6 30 A17 17 0 0 0 39.4 30 Z" fill="#1a9e8c"/><circle cx="24" cy="15" r="3" fill="#1e5aa8"/></g><text x="${W / 2 - 34}" y="${H / 2 - 6}" font-size="44" font-weight="700" letter-spacing="-1.5" fill="#1e5aa8" font-family="var(--font)">dos<tspan fill="#1a9e8c">eraa</tspan></text><text x="${W / 2}" y="${H / 2 + 72}" font-size="19" fill="#14232c" text-anchor="middle" font-family="var(--font)">Compara con evidencia. Decide mejor.</text></g>
-    </svg>
+    <svg viewBox="0 0 ${W} ${H}" aria-hidden="true">${cajas}${vs2}${vs3}${vs4}${vs5}${vs6}</svg>
     <div class="vsub"><span id="vsub"></span></div>
     <button type="button" class="vreplay" id="vreplay" hidden>↻ Ver de nuevo</button>
   </div>`;
   const marco = cont, sub = $("#vsub", cont), vq = cont.querySelector("#vq"), replay = $("#vreplay", cont);
   const reducido = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const ESC = ["e1", "e2", "e3", "e4", "e5", "e6"];
+  const setEsc = n => { ESC.forEach(c => marco.classList.remove(c)); marco.classList.add("e" + n); };
   function correr() {
     videoTimers.forEach(clearTimeout); videoTimers = [];
-    marco.classList.remove("ordenado", "buscando", "chips", "cierre");
-    marco.classList.add("video", "flotando");
+    marco.classList.remove("sug", ...ESC);
+    marco.classList.add("video", "e1");
     vq.textContent = ""; replay.hidden = true;
     const t = (ms, fn) => videoTimers.push(setTimeout(fn, ms));
-    const guion = [[0, "En Colombia hay más de 11.000 medicamentos con registro sanitario."],
-      [3800, "Escribe tu enfermedad o tu medicamento…"],
-      [7600, "…y Doseraa los ordena por precio, cobertura y evidencia, con sus fuentes."],
-      [12300, "Independiente. Gratuito. Con cada cifra enlazada a su origen."]];
-    if (reducido) { marco.classList.add("ordenado", "chips", "cierre"); sub.textContent = guion[3][1]; replay.hidden = true; return; }
+    const guion = [[0, "En Colombia hay más de 11.000 medicamentos con registro sanitario. ¿Cómo comparar?"],
+      [4200, "Escribe una enfermedad, un principio activo o una marca…"],
+      [9200, "…y abre su ficha: costo de tratamiento, precio regulado, cobertura UPC y registro INVIMA."],
+      [15800, "Compara las alternativas con semáforos por costo, evidencia y cobertura. Tú eliges el criterio."],
+      [22600, "Explora estadísticas del sistema de salud y descarga los estudios que soportan cada cifra."],
+      [27600, "Gratuito e independiente · doseraa.com"]];
+    if (reducido) { setEsc(6); sub.textContent = guion[5][1]; replay.hidden = true; return; }
     guion.forEach(([ms, txt]) => t(ms, () => { sub.textContent = txt; }));
-    t(3600, () => marco.classList.add("buscando"));
+    t(4200, () => setEsc(2));
     const q = "diabetes";
-    for (let i = 1; i <= q.length; i++) t(4300 + i * 160, () => { vq.textContent = q.slice(0, i); });
-    t(6600, () => marco.classList.add("ordenado"));
-    t(9400, () => marco.classList.add("chips"));
-    t(12100, () => marco.classList.add("cierre"));
-    t(15600, () => { replay.hidden = false; });
+    for (let i = 1; i <= q.length; i++) t(4700 + i * 150, () => { vq.textContent = q.slice(0, i); });
+    t(6300, () => marco.classList.add("sug"));
+    t(9200, () => { marco.classList.remove("sug"); setEsc(3); });
+    t(15800, () => setEsc(4));
+    t(22600, () => setEsc(5));
+    t(27600, () => setEsc(6));
+    t(31200, () => { replay.hidden = false; });
   }
   replay.addEventListener("click", correr);
   correr();
 }
-
 function vistaIndicaciones() {
   document.title = "Exploración por enfermedades · Doseraa";
   const ind = Object.entries(I).sort((a, b) => a[1][0].localeCompare(b[1][0]));
@@ -733,11 +802,8 @@ function bloqueSoportes(m) {
   for (const x of m.ii) if (x[2]) li.push(`<li><a href="${esc(x[2])}" target="_blank" rel="noopener">Resolución INVIMA ${esc(x[1])} — PDF oficial del registro sanitario</a> <span class="muted small">(indicación, contraindicaciones y posología aprobadas)</span></li>`);
   if (m.fda === "si") li.push(`<li><a href="${m.fdau ? esc(m.fdau[0]) : "https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=" + encodeURIComponent(m.en)}" target="_blank" rel="noopener">Etiqueta aprobada por la FDA (DailyMed)</a> <span class="muted small">(prospecto completo en inglés, descargable)</span></li>`);
   for (const x of m.ema.slice(0, 2)) li.push(`<li><a href="${esc(x[2])}" target="_blank" rel="noopener">Informe EPAR de la EMA — ${esc(x[0])}</a> <span class="muted small">(evaluación europea completa, PDF)</span></li>`);
-  const ds = [["Registro sanitario CUM (INVIMA)", "i7cb-raxc"], ["Precios SISMED 2024 — Termómetro de Precios", "n4dj-8r7k"], ["Precios máximos regulados (Circular 22/2026)", "nauz-qkjw"], ["Medicamentos financiados con la UPC", "jtqe-tuvf"], ["Vitales no disponibles (INVIMA)", "sdmr-tfmf"], ["SISMED 2017–2019 (23 M filas)", "3he6-m866"]];
   return `<details class="bloque"><summary>Soportes: consulta y descarga <span class="n">· ${li.length} documentos de esta molécula</span></summary><div class="cuerpo">
     ${li.length ? `<ul class="preguntas">${li.join("")}</ul>` : `<p class="vacio">No hay documentos de soporte enlazados para esta molécula todavía.</p>`}
-    <h3 style="font-size:15px">Datos abiertos que alimentan esta ficha (descarga CSV)</h3>
-    <ul class="preguntas">${ds.map(([t, id]) => `<li><a href="${DGC(id)}" target="_blank" rel="noopener">${esc(t)}</a> <span class="muted small">(datos.gov.co · ${esc(id)} · licencia CC BY-SA 4.0)</span></li>`).join("")}</ul>
     <p class="small muted" style="margin:0">Los enlaces llevan a las fuentes originales. La base integrada de Doseraa (SQLite y CSV) se publicará para descarga junto con la metodología.</p>
   </div></details>`;
 }
